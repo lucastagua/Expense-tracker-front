@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/UseAuth";
+import { useAuth } from "../../context/useAuth";
 
 export default function AppNavbar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -11,9 +11,9 @@ export default function AppNavbar() {
   };
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav className="navbar navbar-expand-lg navbar-dark app-navbar">
       <div className="container">
-        <Link className="navbar-brand" to="/">
+        <Link className="navbar-brand brand-mark" to="/">
           ExpenseTracker
         </Link>
 
@@ -40,19 +40,23 @@ export default function AppNavbar() {
             )}
           </ul>
 
-          <div className="d-flex align-items-center gap-2 text-white">
-            {isAuthenticated && <span>{user?.name}</span>}
+          <div className="d-flex align-items-center gap-3 text-white">
+            {isAuthenticated && (
+              <div className="small text-white-50">
+                Hola, <span className="text-white fw-semibold">{user?.name}</span>
+              </div>
+            )}
 
             {isAuthenticated ? (
-              <button className="btn btn-outline-light btn-sm" onClick={handleLogout}>
+              <button className="btn btn-outline-light btn-sm px-3" onClick={handleLogout}>
                 Salir
               </button>
             ) : (
               <>
-                <Link className="btn btn-outline-light btn-sm" to="/login">
+                <Link className="btn btn-outline-light btn-sm px-3" to="/login">
                   Login
                 </Link>
-                <Link className="btn btn-light btn-sm" to="/register">
+                <Link className="btn btn-light btn-sm px-3" to="/register">
                   Registro
                 </Link>
               </>
