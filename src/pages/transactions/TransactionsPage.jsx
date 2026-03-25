@@ -10,6 +10,7 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [error, setError] = useState("");
+  const [totalPages, setTotalPages] = useState(1);
 
   const [form, setForm] = useState({
     description: "",
@@ -20,27 +21,67 @@ export default function TransactionsPage() {
     categoryId: "",
   });
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [transactionsData, categoriesData] = await Promise.all([
-          getTransactionsRequest(),
-          getCategoriesRequest(),
-        ]);
+  const [filters, setFilters] = useState({
+    type: "",
+    categoryId: "",
+    fromDate: "",
+    toDate: "",
+    pageNumber: 1,
+    pageSize: 5,
+  });
 
-        setTransactions(transactionsData.items ?? []);
-        setCategories(categoriesData);
+  const filteredCategories = useMemo(() => {
+    return categories.filter((cat) => cat.type === Number(form.type));
+  }, [categories, form.type]);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const data = await getCategoriesRequest();
+        setCategories(data);
+      } catch {
+        setError("No se pudieron cargar las categorías.");
+      }
+    };
+
+    loadCategories();
+  }, []);
+
+  useEffect(() => {
+    const loadTransactions = async () => {
+      try {
+        const data = await getTransactionsRequest({
+          pageNumber: filters.pageNumber,
+          pageSize: filters.pageSize,
+          type: filters.type || undefined,
+          categoryId: filters.categoryId || undefined,
+          fromDate: filters.fromDate || undefined,
+          toDate: filters.toDate || undefined,
+        });
+
+        setTransactions(data.items ?? []);
+        setTotalPages(data.totalPages ?? 1);
       } catch {
         setError("No se pudieron cargar las transacciones.");
       }
     };
 
-    loadData();
-  }, []);
+    loadTransactions();
+  }, [filters]);
 
-  const filteredCategories = useMemo(() => {
-    return categories.filter((cat) => cat.type === Number(form.type));
-  }, [categories, form.type]);
+  const reloadTransactions = async () => {
+    const data = await getTransactionsRequest({
+      pageNumber: filters.pageNumber,
+      pageSize: filters.pageSize,
+      type: filters.type || undefined,
+      categoryId: filters.categoryId || undefined,
+      fromDate: filters.fromDate || undefined,
+      toDate: filters.toDate || undefined,
+    });
+
+    setTransactions(data.items ?? []);
+    setTotalPages(data.totalPages ?? 1);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -65,23 +106,42 @@ export default function TransactionsPage() {
     }));
   };
 
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+
+    setFilters((prev) => ({
+      ...prev,
+      [name]: value,
+      pageNumber: 1,
+    }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      type: "",
+      categoryId: "",
+      fromDate: "",
+      toDate: "",
+      pageNumber: 1,
+      pageSize: 5,
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
     try {
       const payload = {
-        description: form.description,
+        description: form.description.trim(),
         amount: Number(form.amount),
         date: `${form.date}T00:00:00`,
         type: Number(form.type),
-        notes: form.notes,
+        notes: form.notes.trim(),
         categoryId: Number(form.categoryId),
       };
 
-      const newTransaction = await createTransactionRequest(payload);
-
-      setTransactions((prev) => [newTransaction, ...prev]);
+      await createTransactionRequest(payload);
 
       setForm({
         description: "",
@@ -91,6 +151,8 @@ export default function TransactionsPage() {
         notes: "",
         categoryId: "",
       });
+
+      await reloadTransactions();
     } catch (err) {
       console.log("ERROR CREATE TRANSACTION:", err?.response?.data);
 
@@ -116,7 +178,7 @@ export default function TransactionsPage() {
 
     try {
       await deleteTransactionRequest(id);
-      setTransactions((prev) => prev.filter((t) => t.id !== id));
+      await reloadTransactions();
     } catch (err) {
       setError(
         err?.response?.data?.message ||
@@ -222,6 +284,73 @@ export default function TransactionsPage() {
         </div>
       </div>
 
+      <div className="card shadow-sm mb-4">
+        <div className="card-body">
+          <h5 className="mb-3">Filtros</h5>
+
+          <div className="row g-3">
+            <div className="col-md-2">
+              <select
+                className="form-select"
+                name="type"
+                value={filters.type}
+                onChange={handleFilterChange}
+              >
+                <option value="">Todos</option>
+                <option value="1">Ingreso</option>
+                <option value="2">Gasto</option>
+              </select>
+            </div>
+
+            <div className="col-md-3">
+              <select
+                className="form-select"
+                name="categoryId"
+                value={filters.categoryId}
+                onChange={handleFilterChange}
+              >
+                <option value="">Todas las categorías</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-md-2">
+              <input
+                type="date"
+                className="form-control"
+                name="fromDate"
+                value={filters.fromDate}
+                onChange={handleFilterChange}
+              />
+            </div>
+
+            <div className="col-md-2">
+              <input
+                type="date"
+                className="form-control"
+                name="toDate"
+                value={filters.toDate}
+                onChange={handleFilterChange}
+              />
+            </div>
+
+            <div className="col-md-2">
+              <button
+                type="button"
+                className="btn btn-outline-secondary w-100"
+                onClick={clearFilters}
+              >
+                Limpiar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="card shadow-sm">
         <div className="card-body">
           <h5 className="mb-3">Listado</h5>
@@ -229,37 +358,78 @@ export default function TransactionsPage() {
           {transactions.length === 0 ? (
             <p>No hay transacciones todavía.</p>
           ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Descripción</th>
-                  <th>Tipo</th>
-                  <th>Categoría</th>
-                  <th>Fecha</th>
-                  <th>Monto</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((t) => (
-                  <tr key={t.id}>
-                    <td>{t.description}</td>
-                    <td>{t.type === 1 ? "Ingreso" : "Gasto"}</td>
-                    <td>{t.categoryName}</td>
-                    <td>{new Date(t.date).toLocaleDateString()}</td>
-                    <td>${t.amount}</td>
-                    <td>
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => handleDelete(t.id)}
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <>
+              <div className="table-responsive">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Descripción</th>
+                      <th>Tipo</th>
+                      <th>Categoría</th>
+                      <th>Fecha</th>
+                      <th>Monto</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transactions.map((t) => (
+                      <tr key={t.id}>
+                        <td>
+                          <div className="fw-semibold">{t.description}</div>
+                          {t.notes && (
+                            <div className="text-muted small">{t.notes}</div>
+                          )}
+                        </td>
+                        <td>{t.type === 1 ? "Ingreso" : "Gasto"}</td>
+                        <td>{t.categoryName}</td>
+                        <td>{new Date(t.date).toLocaleDateString()}</td>
+                        <td>${t.amount}</td>
+                        <td>
+                          <button
+                            className="btn btn-sm btn-danger"
+                            onClick={() => handleDelete(t.id)}
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="d-flex justify-content-between align-items-center mt-3">
+                <button
+                  className="btn btn-outline-dark"
+                  disabled={filters.pageNumber === 1}
+                  onClick={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      pageNumber: prev.pageNumber - 1,
+                    }))
+                  }
+                >
+                  Anterior
+                </button>
+
+                <span>
+                  Página {filters.pageNumber} de {totalPages}
+                </span>
+
+                <button
+                  className="btn btn-outline-dark"
+                  disabled={filters.pageNumber >= totalPages}
+                  onClick={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      pageNumber: prev.pageNumber + 1,
+                    }))
+                  }
+                >
+                  Siguiente
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>
