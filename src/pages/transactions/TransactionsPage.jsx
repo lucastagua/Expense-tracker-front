@@ -4,6 +4,7 @@ import {
   createTransactionRequest,
   deleteTransactionRequest,
   getTransactionsRequest,
+  updateTransactionRequest,
 } from "../../services/transactionService";
 
 export default function TransactionsPage() {
@@ -11,6 +12,7 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState([]);
   const [error, setError] = useState("");
   const [totalPages, setTotalPages] = useState(1);
+  const [editingId, setEditingId] = useState(null);
 
   const [form, setForm] = useState({
     description: "",
@@ -35,7 +37,7 @@ export default function TransactionsPage() {
   }, [categories, form.type]);
 
   useEffect(() => {
-    const loadCategories = async () => {
+    const fetchCategories = async () => {
       try {
         const data = await getCategoriesRequest();
         setCategories(data);
@@ -44,11 +46,11 @@ export default function TransactionsPage() {
       }
     };
 
-    loadCategories();
+    fetchCategories();
   }, []);
 
   useEffect(() => {
-    const loadTransactions = async () => {
+    const fetchTransactions = async () => {
       try {
         const data = await getTransactionsRequest({
           pageNumber: filters.pageNumber,
@@ -66,21 +68,37 @@ export default function TransactionsPage() {
       }
     };
 
-    loadTransactions();
+    fetchTransactions();
   }, [filters]);
 
   const reloadTransactions = async () => {
-    const data = await getTransactionsRequest({
-      pageNumber: filters.pageNumber,
-      pageSize: filters.pageSize,
-      type: filters.type || undefined,
-      categoryId: filters.categoryId || undefined,
-      fromDate: filters.fromDate || undefined,
-      toDate: filters.toDate || undefined,
-    });
+    try {
+      const data = await getTransactionsRequest({
+        pageNumber: filters.pageNumber,
+        pageSize: filters.pageSize,
+        type: filters.type || undefined,
+        categoryId: filters.categoryId || undefined,
+        fromDate: filters.fromDate || undefined,
+        toDate: filters.toDate || undefined,
+      });
 
-    setTransactions(data.items ?? []);
-    setTotalPages(data.totalPages ?? 1);
+      setTransactions(data.items ?? []);
+      setTotalPages(data.totalPages ?? 1);
+    } catch {
+      setError("No se pudieron cargar las transacciones.");
+    }
+  };
+
+  const resetForm = () => {
+    setForm({
+      description: "",
+      amount: "",
+      date: new Date().toISOString().slice(0, 10),
+      type: 2,
+      notes: "",
+      categoryId: "",
+    });
+    setEditingId(null);
   };
 
   const handleChange = (e) => {
@@ -141,30 +159,41 @@ export default function TransactionsPage() {
         categoryId: Number(form.categoryId),
       };
 
-      await createTransactionRequest(payload);
+      if (editingId) {
+        await updateTransactionRequest(editingId, payload);
+      } else {
+        await createTransactionRequest(payload);
+      }
 
-      setForm({
-        description: "",
-        amount: "",
-        date: new Date().toISOString().slice(0, 10),
-        type: 2,
-        notes: "",
-        categoryId: "",
-      });
-
+      resetForm();
       await reloadTransactions();
     } catch (err) {
-      console.log("ERROR CREATE TRANSACTION:", err?.response?.data);
+      console.log("ERROR SAVE TRANSACTION:", err?.response?.data);
 
       const apiError = err?.response?.data;
 
       if (apiError?.errors) {
         const firstError = Object.values(apiError.errors)?.flat()?.[0];
-        setError(firstError || "No se pudo crear la transacción.");
+        setError(firstError || "No se pudo guardar la transacción.");
       } else {
-        setError(apiError?.message || "No se pudo crear la transacción.");
+        setError(apiError?.message || "No se pudo guardar la transacción.");
       }
     }
+  };
+
+  const handleEdit = (transaction) => {
+    setForm({
+      description: transaction.description,
+      amount: transaction.amount,
+      date: transaction.date.slice(0, 10),
+      type: transaction.type,
+      notes: transaction.notes || "",
+      categoryId: transaction.categoryId,
+    });
+
+    setEditingId(transaction.id);
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleDelete = async (id) => {
@@ -178,6 +207,11 @@ export default function TransactionsPage() {
 
     try {
       await deleteTransactionRequest(id);
+
+      if (editingId === id) {
+        resetForm();
+      }
+
       await reloadTransactions();
     } catch (err) {
       setError(
@@ -189,13 +223,20 @@ export default function TransactionsPage() {
 
   return (
     <div>
-      <h1 className="mb-4">Transacciones</h1>
+      <div className="mb-4">
+        <h1 className="page-title mb-1">Transacciones</h1>
+        <p className="section-subtitle mb-0">
+          Registrá, editá y filtrá tus movimientos financieros.
+        </p>
+      </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="card shadow-sm mb-4">
         <div className="card-body">
-          <h5 className="mb-3">Nueva transacción</h5>
+          <h5 className="mb-3">
+            {editingId ? "Editar transacción" : "Nueva transacción"}
+          </h5>
 
           <form onSubmit={handleSubmit}>
             <div className="row g-3">
@@ -274,10 +315,20 @@ export default function TransactionsPage() {
                 />
               </div>
 
-              <div className="col-12">
+              <div className="col-12 d-flex gap-2">
                 <button className="btn btn-dark" type="submit">
-                  Guardar transacción
+                  {editingId ? "Guardar cambios" : "Guardar transacción"}
                 </button>
+
+                {editingId && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={resetForm}
+                  >
+                    Cancelar
+                  </button>
+                )}
               </div>
             </div>
           </form>
@@ -356,7 +407,9 @@ export default function TransactionsPage() {
           <h5 className="mb-3">Listado</h5>
 
           {transactions.length === 0 ? (
-            <p>No hay transacciones todavía.</p>
+            <div className="empty-state">
+              No hay transacciones para mostrar con los filtros actuales.
+            </div>
           ) : (
             <>
               <div className="table-responsive">
@@ -380,17 +433,36 @@ export default function TransactionsPage() {
                             <div className="text-muted small">{t.notes}</div>
                           )}
                         </td>
-                        <td>{t.type === 1 ? "Ingreso" : "Gasto"}</td>
+                        <td>
+                          <span className={`badge ${t.type === 1 ? "text-bg-success" : "text-bg-danger"}`}>
+                            {t.type === 1 ? "Ingreso" : "Gasto"}
+                          </span>
+                        </td>
                         <td>{t.categoryName}</td>
                         <td>{new Date(t.date).toLocaleDateString()}</td>
-                        <td>${t.amount}</td>
+                        <td className={t.type === 1 ? "amount-income" : "amount-expense"}>
+                          {new Intl.NumberFormat("es-AR", {
+                            style: "currency",
+                            currency: "ARS",
+                            maximumFractionDigits: 0,
+                          }).format(t.amount)}
+                        </td>
                         <td>
-                          <button
-                            className="btn btn-sm btn-danger"
-                            onClick={() => handleDelete(t.id)}
-                          >
-                            Eliminar
-                          </button>
+                          <div className="d-flex gap-2">
+                            <button
+                              className="btn btn-sm btn-outline-primary"
+                              onClick={() => handleEdit(t)}
+                            >
+                              Editar
+                            </button>
+
+                            <button
+                              className="btn btn-sm btn-danger"
+                              onClick={() => handleDelete(t.id)}
+                            >
+                              Eliminar
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

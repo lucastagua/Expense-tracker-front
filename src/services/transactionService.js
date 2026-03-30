@@ -10,6 +10,11 @@ export const createTransactionRequest = async (data) => {
   return response.data;
 };
 
+export const updateTransactionRequest = async (id, data) => {
+  const response = await api.put(`/transactions/${id}`, data);
+  return response.data;
+};
+
 export const deleteTransactionRequest = async (id) => {
   await api.delete(`/transactions/${id}`);
 };

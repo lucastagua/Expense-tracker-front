@@ -178,9 +178,16 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <span className={item.type === 1 ? "amount-income" : "amount-expense"}>
-                      {formatCurrency(item.amount)}
-                    </span>
+                    <div className="text-end">
+                      <div className={item.type === 1 ? "amount-income" : "amount-expense"}>
+                        {formatCurrency(item.amount)}
+                      </div>
+                      <div>
+                        <span className={`badge ${item.type === 1 ? "text-bg-success" : "text-bg-danger"}`}>
+                          {item.type === 1 ? "Ingreso" : "Gasto"}
+                        </span>
+                      </div>
+                    </div>
                   </li>
                 ))}
               </ul>

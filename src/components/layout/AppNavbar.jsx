@@ -17,7 +17,7 @@ export default function AppNavbar() {
           ExpenseTracker
         </Link>
 
-        <div className="collapse navbar-collapse show">
+        <div className="d-flex align-items-center gap-3 ms-auto flex-wrap justify-content-end px-3 py-2 ">
           <ul className="navbar-nav me-auto">
             {isAuthenticated && (
               <>
@@ -42,7 +42,7 @@ export default function AppNavbar() {
 
           <div className="d-flex align-items-center gap-3 text-white">
             {isAuthenticated && (
-              <div className="small text-white-50">
+              <div className="small text-white-50 ms-3">
                 Hola, <span className="text-white fw-semibold">{user?.name}</span>
               </div>
             )}

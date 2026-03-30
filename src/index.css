@@ -150,3 +150,36 @@ textarea {
   background: #0f172a;
   border-color: #0f172a;
 }
+
+@media (max-width: 991px) {
+  .page-title {
+    font-size: 1.8rem;
+  }
+
+  .metric-value {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .page-title {
+    font-size: 1.6rem;
+  }
+
+  .metric-value {
+    font-size: 1.35rem;
+  }
+
+  .auth-wrapper {
+    min-height: auto;
+    padding: 2rem 0;
+  }
+
+  .table {
+    font-size: 0.92rem;
+  }
+
+  .card-title-pro {
+    font-size: 1rem;
+  }
+}

@@ -10,6 +10,11 @@ export const createCategoryRequest = async (data) => {
   return response.data;
 };
 
+export const updateCategoryRequest = async (id, data) => {
+  const response = await api.put(`/categories/${id}`, data);
+  return response.data;
+};
+
 export const deleteCategoryRequest = async (id) => {
   await api.delete(`/categories/${id}`);
 };
